@@ -4,7 +4,7 @@
 # For 2+ GPUs, increase --tensor-parallel-size and you can raise --max-model-len.
 
 set -e
-PORT="${PORT:-5000}"
+PORT="${PORT:-8000}"
 TP_SIZE="${TENSOR_PARALLEL_SIZE:-1}"
 
 python3 -m vllm.entrypoints.openai.api_server \

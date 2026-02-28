@@ -4,26 +4,32 @@
 """Agent-to-agent conversation synthetic data test — runs with local models on Brev.
 
 Expects local OpenAI-compatible servers (e.g. vLLM) serving:
-  - Llama 3.1 for conversation generation (default port 8000)
-  - Nemotron 70B Reward (Llama-3.1-Nemotron-70B-Reward) for judge (default port 8001)
+  - Llama for conversation generation (default port 8000)
+  - Llama-3.3-Nemotron-70B-Reward for scoring (default port 8000, served as nemotron-reward)
+
+The reward model (https://huggingface.co/nvidia/Llama-3.3-Nemotron-70B-Reward) takes a
+conversation (user + assistant turns, up to 4,096 tokens) and outputs a single float
+reward score for the final assistant turn; higher = higher quality. Scores are comparable
+only for the same prompt.
 
 Override via env: LOCAL_MODEL_ENDPOINT, LOCAL_JUDGE_ENDPOINT, LOCAL_LLAMA_MODEL, LOCAL_REWARD_MODEL.
 """
 
 import os
+import re
 
 import data_designer.config as dd
 import pandas as pd
+from data_designer.config.custom_column import custom_column_generator
+from data_designer.engine.models.utils import ChatMessage
 from data_designer.interface import DataDesigner
 
 # Local endpoints (OpenAI-compatible, e.g. vLLM). No API key needed when running locally.
 LOCAL_ENDPOINT = os.environ.get("LOCAL_MODEL_ENDPOINT", "http://localhost:8000/v1")
-LOCAL_JUDGE_ENDPOINT = os.environ.get("LOCAL_JUDGE_ENDPOINT", "http://localhost:8001/v1")
+LOCAL_JUDGE_ENDPOINT = os.environ.get("LOCAL_JUDGE_ENDPOINT", "http://localhost:8000/v1")
 LOCAL_LLAMA_MODEL = os.environ.get("LOCAL_LLAMA_MODEL", "meta-llama/Llama-3.1-8B-Instruct")
-LOCAL_REWARD_MODEL = os.environ.get(
-    "LOCAL_REWARD_MODEL",
-    "nvidia/Llama-3.1-Nemotron-70B-Reward",
-)
+# Use the vLLM --served-model-name (e.g. nemotron-reward) when using run_reward_server.sh
+LOCAL_REWARD_MODEL = os.environ.get("LOCAL_REWARD_MODEL", "nemotron-reward")
 
 local_providers = [
     dd.ModelProvider(
@@ -56,9 +62,8 @@ local_model_configs = [
         model=LOCAL_REWARD_MODEL,
         provider="local-reward",
         inference_parameters=dd.ChatCompletionInferenceParams(
-            temperature=0.2,
-            top_p=0.95,
-            max_tokens=1024,
+            temperature=0.0,
+            max_tokens=8,
         ),
     ),
 ]
@@ -201,43 +206,60 @@ config_builder.add_column(
     )
 )
 
-# ── LLM Judge ────────────────────────────────────────────────────────────────
+# ── Reward model scoring ─────────────────────────────────────────────────────
+#
+# Llama-3.3-Nemotron-70B-Reward expects: messages = [user, assistant] (conversation
+# up to 4,096 tokens) and returns a single float reward for the assistant turn.
+# Higher score = higher quality for that response (scores not comparable across prompts).
+
+
+def _parse_reward_score(content: str | None) -> float:
+    """Parse reward model output to a float. Handles numeric string or leading/trailing text."""
+    if content is None or not str(content).strip():
+        return float("nan")
+    s = str(content).strip()
+    match = re.search(r"-?\d+\.?\d*", s)
+    if match:
+        return float(match.group())
+    return float("nan")
+
+
+@custom_column_generator(
+    required_columns=["conversation", "crime_name", "crime_type", "receiver_type", "is_related"],
+    model_aliases=["nemotron-reward"],
+)
+def reward_score(
+    row: dict,
+    generator_params: None,
+    models: dict,
+) -> dict:
+    """Score the conversation using Llama-3.3-Nemotron-70B-Reward; output is a single float."""
+    conversation = str(row.get("conversation", ""))
+    crime_name = row.get("crime_name", "")
+    crime_type = row.get("crime_type", "")
+    receiver_type = row.get("receiver_type", "")
+    is_related = row.get("is_related", 0)
+    user_prompt = (
+        f"Evaluate this agent-to-agent conversation log for an anomaly classifier. "
+        f"Pattern: {crime_name} ({crime_type}). Rogue type: {crime_type}, receiver: {receiver_type}. "
+        f"Assigned label: {is_related} (1=anomalous, 0=benign). "
+        "Rate the quality of the following conversation (final assistant turn)."
+    )
+    messages = [
+        ChatMessage.as_user(user_prompt),
+        ChatMessage.as_assistant(conversation),
+    ]
+    model = models["nemotron-reward"]
+    response = model.completion(messages, max_tokens=8)
+    content = response.choices[0].message.content if response.choices else None
+    score = _parse_reward_score(content)
+    return {**row, "reward_score": score}
+
 
 config_builder.add_column(
-    dd.LLMJudgeColumnConfig(
-        name="label_accuracy",
-        model_alias="nemotron-reward",
-        prompt="""You are evaluating synthetic training data for an agent monitoring classifier.
-
-Pattern tag: {{ crime_name }} ({{ crime_type }})
-Rogue agent type: {{ crime_type }}
-Receiver agent type: {{ receiver_type }}
-Assigned label: {{ is_related }} (1 = anomalous, 0 = benign)
-
-Log:
-{{ conversation }}
-
-Assess whether the assigned label matches the log content. If label=1, the log should contain subtle signals of the pattern "{{ crime_name }}" from the {{ crime_type }} agent. If label=0, the log should show only routine work.""",
-        scores=[
-            dd.Score(
-                name="label_correctness",
-                description="Does the is_related label accurately match what is happening in the conversation?",
-                options={
-                    1: "Wrong — label contradicts the conversation content",
-                    2: "Ambiguous — signals are too subtle or too obvious to clearly classify",
-                    3: "Correct — label accurately matches the conversation content",
-                },
-            ),
-            dd.Score(
-                name="conversation_realism",
-                description="How realistic and natural does the conversation feel as inter-agent communication?",
-                options={
-                    1: "Unrealistic — stilted, expository, or clearly fabricated",
-                    2: "Passable — functional but somewhat artificial",
-                    3: "Realistic — reads like genuine agent-to-agent coordination",
-                },
-            ),
-        ],
+    dd.CustomColumnConfig(
+        name="reward_score",
+        generator_function=reward_score,
     )
 )
 

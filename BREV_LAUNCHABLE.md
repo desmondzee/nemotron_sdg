@@ -74,7 +74,7 @@ Override the default model with env: `HF_GGUF_REPO_ID`, `HF_GGUF_FILENAME`, `GGU
 
 To run **Llama-3.3-Nemotron-70B-Reward** with vLLM and test from your Mac:
 
-**Note:** Port 8888 on the instance is often used by Jupyter. Run vLLM on a different port (e.g. 5000 or 8000) and forward that port.
+**Note:** Port 8888 on the instance is often used by Jupyter. Run vLLM on port **8000** and forward that port.
 
 **Memory:** The 70B model in BF16 is large for a single 80GB GPU. Use `--max-model-len 4096` (reward model only needs up to 4K tokens) and `--gpu-memory-utilization 0.95` to reduce KV cache and maximize usable memory. If you still get OOM, use **2 GPUs** with `--tensor-parallel-size 2`.
 
@@ -83,30 +83,30 @@ To run **Llama-3.3-Nemotron-70B-Reward** with vLLM and test from your Mac:
    ```bash
    # Single GPU (80GB): memory-saving flags
    ./run_reward_server.sh
-   # Or with port 8000: PORT=8000 ./run_reward_server.sh
+   # Default port is 8000 (matches test_llm_local.py and test_a2a.py)
 
-   # Or run manually with optional flags:
+   # Or run manually with --port 8000:
    python3 -m vllm.entrypoints.openai.api_server \
        --model "nvidia/Llama-3.3-Nemotron-70B-Reward" \
        --dtype auto \
        --trust-remote-code \
        --served-model-name nemotron-reward \
        --host 0.0.0.0 \
-       --port 5000 \
+       --port 8000 \
        --tensor-parallel-size 1 \
        --max-model-len 4096 \
        --gpu-memory-utilization 0.95
    ```
 
-   For **2× 80GB GPUs**, use `TENSOR_PARALLEL_SIZE=2 PORT=5000 ./run_reward_server.sh` (or set `--tensor-parallel-size 2` and optionally increase `--max-model-len`).
+   For **2× 80GB GPUs**, use `TENSOR_PARALLEL_SIZE=2 PORT=8000 ./run_reward_server.sh`.
 
-2. **On your Mac**, forward the same port (e.g. 5000 or 8000):
+2. **On your Mac**, forward local 8000 to remote 8000:
 
    ```bash
-   brev port-forward nemosdg-690ba4 -p 5000:5000
+   brev port-forward nemosdg-690ba4 -p 8000:8000
    ```
 
-3. Run the test script. If you used port 5000, set `BASE_URL` in `test_llm_local.py` to `http://localhost:5000/v1`, then: `python test_llm_local.py`.
+3. Run `python test_llm_local.py` (uses `http://localhost:8000/v1`). For **test_a2a.py**, the reward endpoint default is `http://localhost:8000/v1`.
 
 ### Option B: Nemotron via build.nvidia.com (API key)
 

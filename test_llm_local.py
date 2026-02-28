@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 """Quick test: send an OpenAI-format request to the reward model.
 
-On the Brev instance, port 8888 is usually Jupyter. Run vLLM on another port (e.g. 8000),
-then port-forward that port. Example:
-  Remote: vLLM with --port 8000
-  Mac:    brev port-forward <instance> -p 8000:8000
-  Run:    python test_llm_local.py  (connects to localhost:8000)
+On the Brev instance, run vLLM on port 8000, then port-forward: brev port-forward <instance> -p 8000:8000.
+This script connects to localhost:8000.
 
 Model: nvidia/Llama-3.3-Nemotron-70B-Reward — scores the quality of an assistant
 response given a user prompt (higher score = higher quality).
@@ -13,8 +10,8 @@ response given a user prompt (higher score = higher quality).
 
 from openai import OpenAI
 
-# Local port that forwards to vLLM (run_reward_server.sh defaults to 5000)
-BASE_URL = "http://localhost:5000/v1"
+# Local port that forwards to vLLM (use 8000 for reward model)
+BASE_URL = "http://localhost:8000/v1"
 # Use the --served-model-name you pass to vLLM (e.g. nemotron-reward)
 MODEL = "nemotron-reward"
 
