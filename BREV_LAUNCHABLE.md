@@ -106,6 +106,11 @@ To run **Llama-3.3-Nemotron-70B-Reward** with vLLM and test from your Mac:
 
 3. Run `python test_llm_local.py` (uses `http://localhost:8000/v1`). For **test_a2a.py**, the reward endpoint default is `http://localhost:8000/v1`.
 
+**Getting true reward scalars:** The reward model is designed to output a single float from a forward pass (logit of the first output token), not from generated text. vLLM’s chat completion API returns decoded text, so scores can be stuck at 1.0. For real scalars you can either:
+
+- **Use the HF reward server** (same machine or port-forward): Run `reward_server_hf.py`, which loads the Hugging Face model and returns the scalar from the forward pass. Then set `REWARD_SCORE_URL=http://localhost:5001` (or the forwarded URL) before running `test_a2a.py`. The server expects `POST /score` with JSON `{"messages": [{"role":"user","content":"..."},{"role":"assistant","content":"..."}]}` and returns `{"reward": <float>}`. Requires: `pip install flask torch transformers` and enough GPU memory for the 70B model.
+- **Rely on vLLM:** If you keep using only vLLM, `test_a2a.py` will request `logprobs` and use the first token’s logprob as a proxy score when available, otherwise parse the generated text (which may stay 1.0).
+
 ### Option B: Nemotron via build.nvidia.com (API key)
 
 1. **Set `NVIDIA_API_KEY`** in the instance environment (from [build.nvidia.com](https://build.nvidia.com)).
