@@ -70,6 +70,44 @@ The setup script installs **llama-cpp-python** and **brev/helper.py**, and downl
 
 Override the default model with env: `HF_GGUF_REPO_ID`, `HF_GGUF_FILENAME`, `GGUF_CACHE_DIR`. See **brev/helper.py** docstring.
 
+### Option C: Reward model (vLLM) + port-forward
+
+To run **Llama-3.3-Nemotron-70B-Reward** with vLLM and test from your Mac:
+
+**Note:** Port 8888 on the instance is often used by Jupyter. Run vLLM on a different port (e.g. 5000 or 8000) and forward that port.
+
+**Memory:** The 70B model in BF16 is large for a single 80GB GPU. Use `--max-model-len 4096` (reward model only needs up to 4K tokens) and `--gpu-memory-utilization 0.95` to reduce KV cache and maximize usable memory. If you still get OOM, use **2 GPUs** with `--tensor-parallel-size 2`.
+
+1. **On the Brev instance**, start vLLM (or use the helper script):
+
+   ```bash
+   # Single GPU (80GB): memory-saving flags
+   ./run_reward_server.sh
+   # Or with port 8000: PORT=8000 ./run_reward_server.sh
+
+   # Or run manually with optional flags:
+   python3 -m vllm.entrypoints.openai.api_server \
+       --model "nvidia/Llama-3.3-Nemotron-70B-Reward" \
+       --dtype auto \
+       --trust-remote-code \
+       --served-model-name nemotron-reward \
+       --host 0.0.0.0 \
+       --port 5000 \
+       --tensor-parallel-size 1 \
+       --max-model-len 4096 \
+       --gpu-memory-utilization 0.95
+   ```
+
+   For **2× 80GB GPUs**, use `TENSOR_PARALLEL_SIZE=2 PORT=5000 ./run_reward_server.sh` (or set `--tensor-parallel-size 2` and optionally increase `--max-model-len`).
+
+2. **On your Mac**, forward the same port (e.g. 5000 or 8000):
+
+   ```bash
+   brev port-forward nemosdg-690ba4 -p 5000:5000
+   ```
+
+3. Run the test script. If you used port 5000, set `BASE_URL` in `test_llm_local.py` to `http://localhost:5000/v1`, then: `python test_llm_local.py`.
+
 ### Option B: Nemotron via build.nvidia.com (API key)
 
 1. **Set `NVIDIA_API_KEY`** in the instance environment (from [build.nvidia.com](https://build.nvidia.com)).
