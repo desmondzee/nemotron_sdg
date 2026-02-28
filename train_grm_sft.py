@@ -176,12 +176,14 @@ def main() -> None:
         err_msg = str(e)
         if "selective_scan_cuda" in err_msg or "mamba_ssm" in err_msg or "undefined symbol" in err_msg:
             print(
-                "Nemotron requires mamba_ssm, which failed to load (likely built for a different "
-                "PyTorch/CUDA). Reinstall so it compiles against your current stack:\n"
-                "  pip uninstall mamba-ssm -y && pip install mamba-ssm --no-cache-dir\n"
-                "If you use causal_conv1d, reinstall it too:\n"
-                "  pip uninstall causal-conv1d -y && pip install causal-conv1d --no-cache-dir\n"
-                "Ensure PyTorch is installed first: pip install torch --index-url https://download.pytorch.org/whl/cu121",
+                "Nemotron needs mamba_ssm; selective_scan_cuda was built for a different PyTorch/CUDA.\n"
+                "Reinstall mamba_ssm so it compiles against your current PyTorch (must run after torch):\n"
+                "  pip uninstall mamba-ssm -y\n"
+                "  pip install mamba-ssm --no-cache-dir\n"
+                "If that still fails, force a source build:\n"
+                "  pip install mamba-ssm --no-cache-dir --no-binary mamba-ssm\n"
+                "Install causal-conv1d first if mamba_ssm needs it:\n"
+                "  pip install causal-conv1d --no-cache-dir",
                 file=sys.stderr,
             )
         raise
