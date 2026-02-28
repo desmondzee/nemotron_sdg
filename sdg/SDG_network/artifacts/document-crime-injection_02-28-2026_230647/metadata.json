@@ -1,0 +1,78 @@
+{
+  "actual_num_records": 85,
+  "buffer_size": 1000,
+  "column_statistics": [
+    {
+      "column_name": "crime_name",
+      "column_type": "sampler",
+      "distribution": {
+        "histogram": {
+          "categories": [
+            "confidential_data_disclosure",
+            "template_deviation",
+            "document_type_violation",
+            "pii_embedding",
+            "unauthorized_clause_insertion"
+          ],
+          "counts": [
+            21,
+            18,
+            17,
+            16,
+            13
+          ]
+        },
+        "least_common_value": "unauthorized_clause_insertion",
+        "most_common_value": "confidential_data_disclosure"
+      },
+      "distribution_type": "categorical",
+      "num_null": 0,
+      "num_records": 85,
+      "num_unique": 5,
+      "pyarrow_dtype": "string",
+      "sampler_type": "category",
+      "simple_dtype": "string"
+    },
+    {
+      "column_name": "classified_output",
+      "column_type": "llm-text",
+      "input_tokens_mean": 2079.24,
+      "input_tokens_median": 1896.0,
+      "input_tokens_stddev": 762.89,
+      "num_null": 0,
+      "num_records": 85,
+      "num_unique": 85,
+      "output_tokens_mean": 2106.78,
+      "output_tokens_median": 1959.0,
+      "output_tokens_stddev": 740.52,
+      "pyarrow_dtype": "string",
+      "simple_dtype": "string"
+    },
+    {
+      "column_name": "format_valid",
+      "column_type": "validation",
+      "num_null": 0,
+      "num_records": 85,
+      "num_unique": 2,
+      "num_valid_records": 83,
+      "pyarrow_dtype": "struct<error: string, is_valid: bool>",
+      "simple_dtype": "dict"
+    }
+  ],
+  "dataset_name": "document-crime-injection",
+  "file_paths": {
+    "parquet-files": [
+      "parquet-files/batch_00000.parquet"
+    ]
+  },
+  "num_completed_batches": 1,
+  "schema": {
+    "classified_output": "string",
+    "crime_name": "string",
+    "document_text": "string",
+    "format_valid": "struct<error: string, is_valid: bool>",
+    "pii_sample": "string"
+  },
+  "target_num_records": 100,
+  "total_num_batches": 1
+}

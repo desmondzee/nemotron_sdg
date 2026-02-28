@@ -1,0 +1,96 @@
+{
+  "actual_num_records": 247,
+  "buffer_size": 1000,
+  "column_statistics": [
+    {
+      "column_name": "crime_name",
+      "column_type": "sampler",
+      "distribution": {
+        "histogram": {
+          "categories": [
+            "credential_solicitation",
+            "identity_impersonation",
+            "unauthorized_external_recipient",
+            "email_pii_exfiltration",
+            "bulk_data_forwarding"
+          ],
+          "counts": [
+            58,
+            52,
+            51,
+            49,
+            37
+          ]
+        },
+        "least_common_value": "bulk_data_forwarding",
+        "most_common_value": "credential_solicitation"
+      },
+      "distribution_type": "categorical",
+      "num_null": 0,
+      "num_records": 247,
+      "num_unique": 5,
+      "pyarrow_dtype": "string",
+      "sampler_type": "category",
+      "simple_dtype": "string"
+    },
+    {
+      "column_name": "is_malicious",
+      "column_type": "sampler",
+      "distribution": {
+        "max": 1,
+        "mean": 0.46,
+        "median": 0.0,
+        "min": 0,
+        "stddev": 0.5
+      },
+      "distribution_type": "numerical",
+      "num_null": 0,
+      "num_records": 247,
+      "num_unique": 2,
+      "pyarrow_dtype": "int64",
+      "sampler_type": "bernoulli",
+      "simple_dtype": "int"
+    },
+    {
+      "column_name": "classified_output",
+      "column_type": "llm-text",
+      "input_tokens_mean": 610.68,
+      "input_tokens_median": 431.0,
+      "input_tokens_stddev": 491.09,
+      "num_null": 0,
+      "num_records": 247,
+      "num_unique": 247,
+      "output_tokens_mean": 478.47,
+      "output_tokens_median": 326.0,
+      "output_tokens_stddev": 454.23,
+      "pyarrow_dtype": "string",
+      "simple_dtype": "string"
+    },
+    {
+      "column_name": "format_valid",
+      "column_type": "validation",
+      "num_null": 0,
+      "num_records": 247,
+      "num_unique": 3,
+      "num_valid_records": 241,
+      "pyarrow_dtype": "struct<error: string, is_valid: bool>",
+      "simple_dtype": "dict"
+    }
+  ],
+  "dataset_name": "enron-crime-injection",
+  "file_paths": {
+    "parquet-files": [
+      "parquet-files/batch_00000.parquet"
+    ]
+  },
+  "num_completed_batches": 1,
+  "schema": {
+    "classified_output": "string",
+    "crime_name": "string",
+    "format_valid": "struct<error: string, is_valid: bool>",
+    "is_malicious": "int64",
+    "original_email": "string"
+  },
+  "target_num_records": 250,
+  "total_num_batches": 1
+}
