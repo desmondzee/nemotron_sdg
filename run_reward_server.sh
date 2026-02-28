@@ -1,14 +1,28 @@
 #!/usr/bin/env bash
-# Run vLLM OpenAI API server for Llama-3.3-Nemotron-70B-Reward.
-# On a single 80GB GPU the full 70B BF16 model is tight on memory; use the flags below.
-# For 2+ GPUs, increase --tensor-parallel-size and you can raise --max-model-len.
+# Run vLLM OpenAI API server for Llama-3.1/3.3-Nemotron-70B-Reward.
+# With transformers >=4.44 the tokenizer must have a chat template; we pass one explicitly.
+# For GGUF + separate tokenizer (e.g. --model GGUF --tokenizer nvidia/...), the tokenizer
+# often has no template, so --chat-template is required.
 
 set -e
 PORT="${PORT:-8000}"
 TP_SIZE="${TENSOR_PARALLEL_SIZE:-1}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CHAT_TEMPLATE="${SCRIPT_DIR}/vllm/chat_template_llama31.jinja"
+
+# Optional: use GGUF model + NVIDIA tokenizer (no chat template), e.g.:
+#   MODEL="second-state/Llama-3.1-Nemotron-70B-Reward-HF-GGUF:Q4_K_M"
+#   TOKENIZER="nvidia/Llama-3.1-Nemotron-70B-Reward"
+MODEL="${MODEL:-nvidia/Llama-3.3-Nemotron-70B-Reward}"
+EXTRA_ARGS=()
+if [[ -n "${TOKENIZER:-}" ]]; then
+  EXTRA_ARGS+=(--tokenizer "$TOKENIZER")
+fi
 
 python3 -m vllm.entrypoints.openai.api_server \
-    --model "nvidia/Llama-3.3-Nemotron-70B-Reward" \
+    --model "$MODEL" \
+    "${EXTRA_ARGS[@]}" \
+    --chat-template "$CHAT_TEMPLATE" \
     --dtype auto \
     --trust-remote-code \
     --served-model-name nemotron-reward \

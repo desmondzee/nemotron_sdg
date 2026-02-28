@@ -81,22 +81,20 @@ To run **Llama-3.3-Nemotron-70B-Reward** with vLLM and test from your Mac:
 1. **On the Brev instance**, start vLLM (or use the helper script):
 
    ```bash
-   # Single GPU (80GB): memory-saving flags
+   # Default port 8000 (matches test_llm_local.py and test_a2a.py)
    ./run_reward_server.sh
-   # Default port is 8000 (matches test_llm_local.py and test_a2a.py)
-
-   # Or run manually with --port 8000:
-   python3 -m vllm.entrypoints.openai.api_server \
-       --model "nvidia/Llama-3.3-Nemotron-70B-Reward" \
-       --dtype auto \
-       --trust-remote-code \
-       --served-model-name nemotron-reward \
-       --host 0.0.0.0 \
-       --port 8000 \
-       --tensor-parallel-size 1 \
-       --max-model-len 4096 \
-       --gpu-memory-utilization 0.95
    ```
+
+   For **GGUF + separate tokenizer** (e.g. Q4_K_M), the tokenizer often has no chat template. Pass `--chat-template` (run from repo root so the path resolves):
+   ```bash
+   python3 -m vllm.entrypoints.openai.api_server \
+       --model "second-state/Llama-3.1-Nemotron-70B-Reward-HF-GGUF:Q4_K_M" \
+       --tokenizer "nvidia/Llama-3.1-Nemotron-70B-Reward" \
+       --chat-template "$(pwd)/vllm/chat_template_llama31.jinja" \
+       --dtype auto --trust-remote-code --served-model-name nemotron-reward \
+       --host 0.0.0.0 --port 8000 --tensor-parallel-size 1
+   ```
+   Or use the script with env vars: `MODEL=... TOKENIZER=... ./run_reward_server.sh` (script passes `--chat-template` automatically).
 
    For **2× 80GB GPUs**, use `TENSOR_PARALLEL_SIZE=2 PORT=8000 ./run_reward_server.sh`.
 
