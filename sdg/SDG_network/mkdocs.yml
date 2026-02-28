@@ -1,0 +1,179 @@
+site_name: NeMo Data Designer
+site_url: https://nvidia-nemo.github.io/DataDesigner/
+repo_url: https://github.com/NVIDIA-NeMo/DataDesigner
+
+nav:
+  - Getting Started:
+      - Welcome: index.md
+      - Contributing: CONTRIBUTING.md
+  - Concepts:
+      - Columns: concepts/columns.md
+      - Seed Datasets: concepts/seed-datasets.md
+      - Models:
+          - Default Model Settings: concepts/models/default-model-settings.md
+          - Configure with the CLI: concepts/models/configure-model-settings-with-the-cli.md
+          - Custom Model Settings: concepts/models/custom-model-settings.md
+          - Model Providers: concepts/models/model-providers.md
+          - Model Configs: concepts/models/model-configs.md
+          - Inference Parameters: concepts/models/inference-parameters.md
+      - Custom Columns: concepts/custom_columns.md
+      - Validators: concepts/validators.md
+      - Processors: concepts/processors.md
+      - Person Sampling: concepts/person_sampling.md
+      - Traces: concepts/traces.md
+      - Tool Use & MCP:
+          - Overview: concepts/tool_use_and_mcp.md
+          - MCP Providers: concepts/mcp/mcp-providers.md
+          - Tool Configs: concepts/mcp/tool-configs.md
+          - Enabling Tools: concepts/mcp/enabling-tools.md
+          - CLI Configuration: concepts/mcp/configure-mcp-cli.md
+          - Safety & Limits: concepts/mcp/safety-and-limits.md
+      - Architecture & Performance: concepts/architecture-and-performance.md
+      - Deployment Options: concepts/deployment-options.md
+  - Tutorials:
+      - Overview: notebooks/README.md
+      - The Basics: notebooks/1-the-basics.ipynb
+      - Structured Outputs and Jinja Expressions: notebooks/2-structured-outputs-and-jinja-expressions.ipynb
+      - Seeding with an External Dataset: notebooks/3-seeding-with-a-dataset.ipynb
+      - Providing Images as Context: notebooks/4-providing-images-as-context.ipynb
+      - Generating Images: notebooks/5-generating-images.ipynb
+      - Image-to-Image Editing: notebooks/6-editing-images-with-image-context.ipynb
+  - Recipes:
+      - Recipe Cards: recipes/cards.md
+      - Code Generation:
+          - Text to Python: recipes/code_generation/text_to_python.md
+          - Text to SQL: recipes/code_generation/text_to_sql.md
+      - QA and Chat:
+          - Product Info QA: recipes/qa_and_chat/product_info_qa.md
+          - Multi-Turn Chat: recipes/qa_and_chat/multi_turn_chat.md
+      - MCP and Tool Use:
+          - "Basic MCP Tool Use": recipes/mcp_and_tooluse/basic_mcp.md
+          - "PDF Document QA": recipes/mcp_and_tooluse/pdf_qa.md
+  - Plugins:
+      - Overview: plugins/overview.md
+      - Example Plugin: plugins/example.md
+      - Available Plugin List: plugins/available.md
+  - Code Reference:
+      - models: code_reference/models.md
+      - mcp: code_reference/mcp.md
+      - column_configs: code_reference/column_configs.md
+      - config_builder: code_reference/config_builder.md
+      - data_designer_config: code_reference/data_designer_config.md
+      - run_config: code_reference/run_config.md
+      - sampler_params: code_reference/sampler_params.md
+      - validator_params: code_reference/validator_params.md
+      - processors: code_reference/processors.md
+      - analysis: code_reference/analysis.md
+  - Dev Notes:
+      - devnotes/index.md
+      - Design Principles: devnotes/posts/design-principles.md
+      - RQA Dataset: devnotes/posts/rqa.md
+      - Deep Research Trajectories: devnotes/posts/deep-research-trajectories.md
+
+theme:
+  name: material
+  custom_dir: docs/overrides
+  font:
+    text: Roboto
+    code: Fira Code
+  icon:
+      logo: fontawesome/solid/palette
+      repo: fontawesome/brands/github-alt
+  favicon: assets/palette-favicon.png
+  palette:
+      - media: "(prefers-color-scheme: dark)"
+        scheme: slate
+        primary: black
+        toggle:
+            icon: material/lightbulb-outline
+            name: Switch to light mode
+      - media: "(prefers-color-scheme: light)"
+        scheme: default
+        primary: black
+        toggle:
+            icon: material/lightbulb
+            name: Switch to dark mode
+  features:
+      - navigation.path
+      - navigation.footer
+      - navigation.indexes
+      - content.code.copy
+      - content.code.select
+      - content.code.annotate
+
+extra:
+  version:
+    provider: mike
+    alias: true
+    default: latest
+
+watch:
+  - packages/data-designer-config/src/data_designer
+  - packages/data-designer-engine/src/data_designer
+  - packages/data-designer/src/data_designer
+  - docs/
+
+plugins:
+  - search
+  - blog:
+      blog_dir: devnotes
+      blog_toc: true
+      post_date_format: long
+      post_url_format: "{slug}"
+      categories: false
+      archive: true
+      archive_toc: true
+  - mike:
+      alias_type: symlink
+      canonical_version: latest
+  - mkdocs-jupyter:
+        execute: false
+        include_requirejs: true
+        ignore_h1_titles: True
+        include_source: True
+        ignore:
+          - "assets/recipes/**/*.py"
+  - mkdocstrings:
+      handlers:
+          python:
+              paths:
+                  - packages/data-designer-config/src
+                  - packages/data-designer-engine/src
+                  - packages/data-designer/src
+              options:
+                  show_symbol_type_heading: true
+                  show_symbol_type_toc: true
+                  show_root_toc_entry: true
+                  show_object_full_path: false
+                  filters: ["!^_"]
+                  docstring_options:
+                      ignore_init_summary: false
+                  merge_init_into_class: true
+                  docstring_section_style: table
+                  summary: true
+
+extra_css:
+  - css/style.css
+  - css/mkdocstrings.css
+
+extra_javascript:
+  - js/toc-toggle.js
+
+markdown_extensions:
+  - tables
+  - pymdownx.superfences
+  - attr_list
+  - md_in_html
+  - admonition
+  - pymdownx.snippets:
+      base_path:
+        - docs/
+        - .
+  - pymdownx.highlight:
+        pygments_lang_class: true
+        use_pygments: true
+  - pymdownx.tabbed:
+        alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
