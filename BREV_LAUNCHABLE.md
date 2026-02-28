@@ -51,15 +51,29 @@ Follow the steps below in the [Brev Launchables documentation](https://docs.nvid
 
 ---
 
-## After Deployment: Testing with Nemotron
+## After Deployment: Testing
 
-1. **Deploy** the Launchable (e.g. **Deploy Launchable** → **Go to Instance Page**).
-2. **Set `NVIDIA_API_KEY`** in the instance environment (Brev often allows env vars on the instance or in the deploy form).  
-   Get an API key from [build.nvidia.com](https://build.nvidia.com) for Nemotron (e.g. `nvidia/nemotron-3-nano-30b-a3b`).
-3. Open **Jupyter** from the instance page.
-4. In Jupyter, open **`brev/nemotron_sdg_demo.ipynb`**.
-5. Select the kernel **"Data Designer (Nemotron)"** (registered by `brev/setup.sh`).
-6. Run all cells. The notebook runs a minimal Data Designer job using **Nemotron** (text and optional vision) so you can confirm the deployment works.
+### Option A: Local GGUF + llama.cpp (no API key)
+
+The setup script installs **llama-cpp-python** and **brev/helper.py**, and downloads a default GGUF model from Hugging Face (Llama-3.1-Nemotron-70B-Instruct, Q4_K_M). To run the model locally:
+
+1. Start the OpenAI-compatible server (from repo root, with the workspace venv):
+   ```bash
+   cd sdg/SDG_network && uv run python ../../brev/helper.py run
+   ```
+   Or download only, then start the server with a specific path:
+   ```bash
+   uv run python brev/helper.py download
+   uv run python brev/helper.py server --model-path <path-printed-by-download>
+   ```
+2. Point **test.py** at the server by leaving `LOCAL_MODEL_ENDPOINT` as `http://localhost:8000/v1` (default). Run from `sdg/SDG_network`: `uv run python test.py`.
+
+Override the default model with env: `HF_GGUF_REPO_ID`, `HF_GGUF_FILENAME`, `GGUF_CACHE_DIR`. See **brev/helper.py** docstring.
+
+### Option B: Nemotron via build.nvidia.com (API key)
+
+1. **Set `NVIDIA_API_KEY`** in the instance environment (from [build.nvidia.com](https://build.nvidia.com)).
+2. Open **Jupyter** and run **`brev/nemotron_sdg_demo.ipynb`** with kernel **"Data Designer (Nemotron)"**.
 
 ---
 
@@ -68,9 +82,12 @@ Follow the steps below in the [Brev Launchables documentation](https://docs.nvid
 | Item | Value |
 |------|--------|
 | **Setup script** | `brev/setup.sh` |
+| **Helper (GGUF + llama.cpp)** | `brev/helper.py` — download, server, run |
+| **Helper deps** | `brev/requirements.txt` (huggingface-hub, llama-cpp-python[server]) |
 | **Demo notebook** | `brev/nemotron_sdg_demo.ipynb` |
 | **Jupyter kernel** | Data Designer (Nemotron) |
-| **Env var for Nemotron** | `NVIDIA_API_KEY` (from build.nvidia.com) |
+| **Local GGUF default** | Hugging Face: Llama-3.1-Nemotron-70B-Instruct-HF-GGUF (Q4_K_M) |
+| **Env for Nemotron API** | `NVIDIA_API_KEY` (from build.nvidia.com) |
 | **Docs** | [Brev Launchables](https://docs.nvidia.com/brev/latest/launchables.html) |
 
 Once the Launchable is created, you can share the link, toggle access, view metrics, and manage it from the **Launchables** tab.
