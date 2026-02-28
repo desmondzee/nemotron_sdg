@@ -1,0 +1,48 @@
+{
+  "actual_num_records": 1000,
+  "buffer_size": 1000,
+  "column_statistics": [
+    {
+      "column_name": "classified_output",
+      "column_type": "llm-text",
+      "input_tokens_mean": 483.37,
+      "input_tokens_median": 469.0,
+      "input_tokens_stddev": 79.78,
+      "num_null": 0,
+      "num_records": 1000,
+      "num_unique": 1000,
+      "output_tokens_mean": 119.67,
+      "output_tokens_median": 117.0,
+      "output_tokens_stddev": 24.17,
+      "pyarrow_dtype": "string",
+      "simple_dtype": "string"
+    },
+    {
+      "column_name": "classification_valid",
+      "column_type": "validation",
+      "num_null": 0,
+      "num_records": 1000,
+      "num_unique": 1,
+      "num_valid_records": 1000,
+      "pyarrow_dtype": "struct<error: null, is_valid: bool>",
+      "simple_dtype": "dict"
+    }
+  ],
+  "dataset_name": "code-crime-classification",
+  "file_paths": {
+    "parquet-files": [
+      "parquet-files/batch_00000.parquet"
+    ]
+  },
+  "num_completed_batches": 1,
+  "schema": {
+    "chosen": "string",
+    "classification_valid": "struct<error: null, is_valid: bool>",
+    "classified_output": "string",
+    "lang": "string",
+    "rejected": "string",
+    "vulnerability": "string"
+  },
+  "target_num_records": 1000,
+  "total_num_batches": 1
+}

@@ -1,0 +1,88 @@
+{
+  "data_designer": {
+    "columns": [
+      {
+        "name": "classified_output",
+        "drop": false,
+        "allow_resize": false,
+        "column_type": "llm-text",
+        "prompt": "Language: {{ lang }}\nVulnerability type: {{ vulnerability }}\n\nVulnerable code:\n{{ rejected }}",
+        "model_alias": "sonnet",
+        "system_prompt": "You are a code security classifier. Given a vulnerable code snippet, determine which of the following crime categories it falls under and explain why.\n\nCrime categories:\n- secret_hardcoding: Code contains hardcoded secrets, API keys, passwords, tokens, or credentials embedded directly in source code rather than loaded from secure configuration.\n- scope_boundary_violation: Code accesses files, directories, memory, network resources, or system calls outside its intended scope or privilege level. Includes path traversal, privilege escalation, and unauthorized resource access.\n- unauthorized_dependency_injection: Code imports, installs, or loads unauthorized or malicious packages, libraries, or modules. Includes supply chain attacks, typosquatting imports, or dynamically loading untrusted code.\n- backdoor_insertion: Code contains hidden functionality that bypasses normal authentication or authorization, creates covert access channels, or enables remote code execution. Includes reverse shells, hidden admin accounts, and logic bombs.\n- test_suppression: Code deliberately disables, skips, weakens, or removes tests, assertions, validation checks, or security controls. Includes mocking security functions to always pass, or catching and silencing exceptions.\n\nOUTPUT FORMAT: You must output two sections separated by the exact delimiter shown below.\n\nSECTION 1 — The crime name only (one of: secret_hardcoding, scope_boundary_violation, unauthorized_dependency_injection, backdoor_insertion, test_suppression, none).\nThen on its own line: ---REASONING---\nSECTION 2 — A concise explanation (2-4 sentences) of WHY this code matches that crime category. Reference specific lines, patterns, or constructs in the code. If the classification is \"none\", explain why it does not match any category.\n\nDo NOT add any other labels, headers, or commentary.",
+        "multi_modal_context": null,
+        "tool_alias": null,
+        "with_trace": "none",
+        "extract_reasoning_content": false
+      },
+      {
+        "name": "classification_valid",
+        "drop": false,
+        "allow_resize": false,
+        "column_type": "validation",
+        "target_columns": [
+          "classified_output"
+        ],
+        "validator_type": "local_callable",
+        "validator_params": {
+          "validation_function": "validate_classification",
+          "output_schema": null
+        },
+        "batch_size": 10
+      },
+      {
+        "name": "lang",
+        "drop": false,
+        "allow_resize": false,
+        "column_type": "seed-dataset"
+      },
+      {
+        "name": "vulnerability",
+        "drop": false,
+        "allow_resize": false,
+        "column_type": "seed-dataset"
+      },
+      {
+        "name": "rejected",
+        "drop": false,
+        "allow_resize": false,
+        "column_type": "seed-dataset"
+      },
+      {
+        "name": "chosen",
+        "drop": false,
+        "allow_resize": false,
+        "column_type": "seed-dataset"
+      }
+    ],
+    "model_configs": [
+      {
+        "alias": "sonnet",
+        "model": "claude-sonnet-4-6",
+        "inference_parameters": {
+          "generation_type": "chat-completion",
+          "max_parallel_requests": 4,
+          "timeout": null,
+          "extra_body": null,
+          "temperature": 0.0,
+          "top_p": null,
+          "max_tokens": 1024
+        },
+        "provider": "claude",
+        "skip_health_check": false
+      }
+    ],
+    "tool_configs": [],
+    "seed_config": {
+      "source": {
+        "seed_type": "local",
+        "path": "code_vulnerability_seed.csv"
+      },
+      "sampling_strategy": "ordered",
+      "selection_strategy": null
+    },
+    "constraints": null,
+    "profilers": null,
+    "processors": null
+  },
+  "library_version": "0.0.1.dev9+8d4cd51"
+}
