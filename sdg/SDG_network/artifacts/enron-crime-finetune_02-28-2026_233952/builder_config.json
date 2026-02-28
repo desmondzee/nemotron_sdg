@@ -1,0 +1,113 @@
+{
+  "data_designer": {
+    "columns": [
+      {
+        "name": "generated_email",
+        "drop": false,
+        "allow_resize": false,
+        "column_type": "llm-text",
+        "prompt": "Seed example for reference (do NOT copy — generate something different):\n\n{{ modified_email[:2000] }}",
+        "model_alias": "sonnet",
+        "system_prompt": "You are a synthetic data generator creating diverse training examples for a classifier that detects malicious actions in corporate emails.\n\nYou will receive a SEED EXAMPLE of a {{ crime_name }} email. Your job is to generate a NOVEL VARIATION that:\n- Commits the SAME crime ({{ crime_name }}) but uses different wording, context, and approach\n- Has a completely different subject matter, sender/recipient relationship, and business context\n- Maintains the same level of subtlety and realism as the seed\n- Is realistic enough to appear in a real corporate inbox\n\n{% if crime_name == \"email_pii_exfiltration\" %}\nCrime — email_pii_exfiltration: The sender subtly embeds or forwards personally identifiable information (SSNs, account numbers, addresses, salary data) to unauthorized parties.\n{% elif crime_name == \"unauthorized_external_recipient\" %}\nCrime — unauthorized_external_recipient: The sender adds an external or unauthorized email address to the CC/BCC/To field, forwarding internal info outside the organization.\n{% elif crime_name == \"identity_impersonation\" %}\nCrime — identity_impersonation: The sender impersonates another employee (different name, title, or authority) to manipulate the recipient.\n{% elif crime_name == \"credential_solicitation\" %}\nCrime — credential_solicitation: The sender tricks the recipient into revealing passwords, login credentials, API keys, or authentication secrets.\n{% elif crime_name == \"bulk_data_forwarding\" %}\nCrime — bulk_data_forwarding: The sender attaches or forwards large volumes of internal data (spreadsheets, database exports, customer lists, financial reports) to external recipients.\n{% endif %}\n\n{% if is_malicious == 1 %}\nTASK: Generate a NEW corporate email that commits \"{{ crime_name }}\" in a different way than the seed example.\n- Do NOT copy the seed — create entirely new content, names, departments, and scenarios.\n- The crime should be woven naturally and subtly.\n- Output ONLY the email text.\n{% else %}\nTASK: Generate a NEW clean corporate email that is completely benign.\n- Create a realistic business email with no malicious content.\n- Use different subject matter, names, and context from the seed.\n- Output ONLY the email text.\n{% endif %}",
+        "multi_modal_context": null,
+        "tool_alias": null,
+        "with_trace": "none",
+        "extract_reasoning_content": false
+      },
+      {
+        "name": "label",
+        "drop": false,
+        "allow_resize": false,
+        "column_type": "expression",
+        "expr": "{{ is_malicious }}",
+        "dtype": "str"
+      },
+      {
+        "name": "crime_type",
+        "drop": false,
+        "allow_resize": false,
+        "column_type": "expression",
+        "expr": "{{ crime_name }}",
+        "dtype": "str"
+      },
+      {
+        "name": "original_email",
+        "drop": false,
+        "allow_resize": false,
+        "column_type": "seed-dataset"
+      },
+      {
+        "name": "crime_name",
+        "drop": false,
+        "allow_resize": false,
+        "column_type": "seed-dataset"
+      },
+      {
+        "name": "is_malicious",
+        "drop": false,
+        "allow_resize": false,
+        "column_type": "seed-dataset"
+      },
+      {
+        "name": "format_valid",
+        "drop": false,
+        "allow_resize": false,
+        "column_type": "seed-dataset"
+      },
+      {
+        "name": "modified_email",
+        "drop": false,
+        "allow_resize": false,
+        "column_type": "seed-dataset"
+      },
+      {
+        "name": "reasoning",
+        "drop": false,
+        "allow_resize": false,
+        "column_type": "seed-dataset"
+      },
+      {
+        "name": "reward_score",
+        "drop": false,
+        "allow_resize": false,
+        "column_type": "seed-dataset"
+      },
+      {
+        "name": "reward_reasoning",
+        "drop": false,
+        "allow_resize": false,
+        "column_type": "seed-dataset"
+      }
+    ],
+    "model_configs": [
+      {
+        "alias": "sonnet",
+        "model": "claude-sonnet-4-6",
+        "inference_parameters": {
+          "generation_type": "chat-completion",
+          "max_parallel_requests": 4,
+          "timeout": null,
+          "extra_body": null,
+          "temperature": 0.95,
+          "top_p": null,
+          "max_tokens": 4096
+        },
+        "provider": "anthropic",
+        "skip_health_check": true
+      }
+    ],
+    "tool_configs": [],
+    "seed_config": {
+      "source": {
+        "seed_type": "local",
+        "path": "enron_seed_scored.parquet"
+      },
+      "sampling_strategy": "ordered",
+      "selection_strategy": null
+    },
+    "constraints": null,
+    "profilers": null,
+    "processors": null
+  },
+  "library_version": "unknown"
+}
