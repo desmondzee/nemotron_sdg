@@ -2,7 +2,7 @@
 
 """Supervised fine-tuning (SFT) for a Generative Reward Model (GRM) on a2a messages.
 
-Trains Nemotron 30B with QLoRA so the model generates reasoning plus a verdict
+Trains Nemotron 30B with 8-bit LoRA so the model generates reasoning plus a verdict
 (<VERDICT> MALICIOUS | BENIGN) for application-to-application (a2a) message
 classification. Loss is computed only on the assistant turn (completion-only).
 
@@ -29,6 +29,7 @@ Dependencies (install before running on H200):
   pip install -U torch --index-url https://download.pytorch.org/whl/cu121
   pip install -U transformers accelerate peft trl bitsandbytes datasets
   pip install flash-attn --no-build-isolation
+  pip install mamba-ssm causal-conv1d  # Nemotron uses Mamba; install after torch so they match.
 
 Example run:
   DATA_PATH=a2a_malicious_data.jsonl python train_grm_sft.py
@@ -45,7 +46,7 @@ import sys
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="SFT for GRM on a2a messages (Nemotron 30B + QLoRA, completion-only loss)."
+        description="SFT for GRM on a2a messages (Nemotron 30B + 8-bit LoRA, completion-only loss)."
     )
     parser.add_argument(
         "--model_id",
@@ -137,13 +138,8 @@ def main() -> None:
     import torch
     from datasets import load_dataset
     from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
-    from transformers import (
-        AutoModelForCausalLM,
-        AutoTokenizer,
-        BitsAndBytesConfig,
-        TrainingArguments,
-    )
-    from trl import DataCollatorForCompletionOnlyLM, SFTTrainer
+    from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+    from trl import SFTConfig, SFTTrainer
 
     torch.backends.cuda.matmul.allow_tf32 = True
 
@@ -155,13 +151,11 @@ def main() -> None:
         tokenizer.pad_token = tokenizer.eos_token
 
     # -------------------------------------------------------------------------
-    # Model with 4-bit QLoRA; prefer Flash Attention on H200
+    # Model with 8-bit quantization (LoRA); prefer Flash Attention on H200
     # -------------------------------------------------------------------------
     bnb_config = BitsAndBytesConfig(
-        load_in_4bit=True,
-        bnb_4bit_use_double_quant=True,
-        bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.bfloat16,
+        load_in_8bit=True,
+        llm_int8_enable_fp32_cpu_offload=False,
     )
     try:
         import flash_attn  # noqa: F401
@@ -170,13 +164,27 @@ def main() -> None:
         print("Warning: flash-attn not installed. Falling back to sdpa.", flush=True)
         attn_impl = "sdpa"
 
-    model = AutoModelForCausalLM.from_pretrained(
-        args.model_id,
-        quantization_config=bnb_config,
-        device_map="auto",
-        attn_implementation=attn_impl,
-        trust_remote_code=True,
-    )
+    try:
+        model = AutoModelForCausalLM.from_pretrained(
+            args.model_id,
+            quantization_config=bnb_config,
+            device_map="auto",
+            attn_implementation=attn_impl,
+            trust_remote_code=True,
+        )
+    except ImportError as e:
+        err_msg = str(e)
+        if "selective_scan_cuda" in err_msg or "mamba_ssm" in err_msg or "undefined symbol" in err_msg:
+            print(
+                "Nemotron requires mamba_ssm, which failed to load (likely built for a different "
+                "PyTorch/CUDA). Reinstall so it compiles against your current stack:\n"
+                "  pip uninstall mamba-ssm -y && pip install mamba-ssm --no-cache-dir\n"
+                "If you use causal_conv1d, reinstall it too:\n"
+                "  pip uninstall causal-conv1d -y && pip install causal-conv1d --no-cache-dir\n"
+                "Ensure PyTorch is installed first: pip install torch --index-url https://download.pytorch.org/whl/cu121",
+                file=sys.stderr,
+            )
+        raise
     print(f"Model loaded with attn_implementation={attn_impl}", flush=True)
 
     # -------------------------------------------------------------------------
@@ -221,18 +229,10 @@ def main() -> None:
         print(f"Warning: {bad} rows failed validation (see schema in docstring).", flush=True)
 
     # -------------------------------------------------------------------------
-    # Completion-only collator: loss only on assistant turn
+    # Training config (H200-oriented). Use SFTConfig with assistant_only_loss
+    # so loss is only on assistant turn (replaces removed DataCollatorForCompletionOnlyLM).
     # -------------------------------------------------------------------------
-    response_template = "<|im_start|>assistant\n"
-    collator = DataCollatorForCompletionOnlyLM(
-        response_template=response_template,
-        tokenizer=tokenizer,
-    )
-
-    # -------------------------------------------------------------------------
-    # Training arguments (H200-oriented)
-    # -------------------------------------------------------------------------
-    training_args = TrainingArguments(
+    training_args = SFTConfig(
         output_dir=args.output_dir,
         per_device_train_batch_size=args.per_device_train_batch_size,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
@@ -248,17 +248,16 @@ def main() -> None:
         logging_steps=10,
         save_strategy="epoch",
         group_by_length=True,
+        assistant_only_loss=True,
     )
 
     # -------------------------------------------------------------------------
-    # SFTTrainer: no formatting_func; trainer uses tokenizer chat template on "messages"
-    # No packing (incompatible with DataCollatorForCompletionOnlyLM)
+    # SFTTrainer: tokenizer chat template on "messages"; no custom data_collator
     # -------------------------------------------------------------------------
     trainer = SFTTrainer(
         model=model,
         train_dataset=dataset,
         peft_config=lora_config,
-        data_collator=collator,
         max_seq_length=args.max_seq_length,
         tokenizer=tokenizer,
         args=training_args,
@@ -274,7 +273,7 @@ def main() -> None:
 
     # -------------------------------------------------------------------------
     # Optional: merge LoRA into base and save full model
-    # (Cannot merge bf16 adapters into 4-bit base; reload base in bf16 first.)
+    # (Reload base in 8-bit, apply adapters, merge, then save.)
     # -------------------------------------------------------------------------
     if args.merge:
         merge_dir = os.path.join(args.output_dir, "merged")
@@ -283,16 +282,19 @@ def main() -> None:
         import gc
         from peft import PeftModel
 
-        # 1. Clear 4-bit model and trainer from VRAM
+        # 1. Clear 8-bit model and trainer from VRAM
         del model
         del trainer
         gc.collect()
         torch.cuda.empty_cache()
 
-        # 2. Reload base model in standard bfloat16 (no 4-bit)
+        # 2. Reload base model in 8-bit (same as training)
         base_model = AutoModelForCausalLM.from_pretrained(
             args.model_id,
-            torch_dtype=torch.bfloat16,
+            quantization_config=BitsAndBytesConfig(
+                load_in_8bit=True,
+                llm_int8_enable_fp32_cpu_offload=False,
+            ),
             device_map="auto",
             trust_remote_code=True,
         )
