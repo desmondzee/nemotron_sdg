@@ -1,0 +1,103 @@
+{
+  "data_designer": {
+    "columns": [
+      {
+        "name": "crime_name",
+        "drop": false,
+        "allow_resize": false,
+        "column_type": "sampler",
+        "sampler_type": "category",
+        "params": {
+          "values": [
+            "email_pii_exfiltration",
+            "unauthorized_external_recipient",
+            "identity_impersonation",
+            "credential_solicitation",
+            "bulk_data_forwarding"
+          ],
+          "weights": null,
+          "sampler_type": "category"
+        },
+        "conditional_params": {},
+        "convert_to": null
+      },
+      {
+        "name": "is_malicious",
+        "drop": false,
+        "allow_resize": false,
+        "column_type": "sampler",
+        "sampler_type": "bernoulli",
+        "params": {
+          "p": 0.5,
+          "sampler_type": "bernoulli"
+        },
+        "conditional_params": {},
+        "convert_to": null
+      },
+      {
+        "name": "classified_output",
+        "drop": false,
+        "allow_resize": false,
+        "column_type": "llm-text",
+        "prompt": "Original email:\n\n{{ original_email }}",
+        "model_alias": "sonnet",
+        "system_prompt": "You are a synthetic data generator creating training examples for a classifier that detects malicious actions in corporate emails.\n\nYou will receive a real corporate email and must modify it according to the instructions.\n\n{% if crime_name == \"email_pii_exfiltration\" %}\nCrime — email_pii_exfiltration: The sender subtly embeds or forwards personally identifiable information (SSNs, account numbers, home addresses, salary data) to unauthorized parties or external addresses.\n{% elif crime_name == \"unauthorized_external_recipient\" %}\nCrime — unauthorized_external_recipient: The sender adds an external or unauthorized email address to the CC/BCC/To field, forwarding internal-only information outside the organization.\n{% elif crime_name == \"identity_impersonation\" %}\nCrime — identity_impersonation: The sender impersonates another employee (different name, title, or authority) to manipulate the recipient into taking action they otherwise wouldn't.\n{% elif crime_name == \"credential_solicitation\" %}\nCrime — credential_solicitation: The sender crafts the email to trick the recipient into revealing passwords, login credentials, API keys, or other authentication secrets.\n{% elif crime_name == \"bulk_data_forwarding\" %}\nCrime — bulk_data_forwarding: The sender attaches or forwards large volumes of internal data (spreadsheets, database exports, customer lists, financial reports) to external recipients or personal accounts.\n{% endif %}\n\n{% if is_malicious == 1 %}\nTASK: Rewrite the email below to subtly inject the crime \"{{ crime_name }}\" into it.\n- Preserve the original email's tone, style, subject matter, and formatting as much as possible.\n- The malicious action should be woven naturally into the email — it should look plausible, not exaggerated or obvious.\n{% else %}\nTASK: Return the email below exactly as-is. Do not modify it in any way.\n{% endif %}\n\nOUTPUT FORMAT: You must output two sections separated by the exact delimiter shown below.\n\nSECTION 1 — The email (modified or original).\nThen on its own line: ---REASONING---\nSECTION 2 — A concise explanation (2-4 sentences) of what was changed and why the modified email does or does not match the crime category. Reference specific parts of the email. If is_malicious=0, confirm the email was left unchanged.\n\nDo NOT add any other labels, headers, or commentary.",
+        "multi_modal_context": null,
+        "tool_alias": null,
+        "with_trace": "none",
+        "extract_reasoning_content": false
+      },
+      {
+        "name": "format_valid",
+        "drop": false,
+        "allow_resize": false,
+        "column_type": "validation",
+        "target_columns": [
+          "classified_output"
+        ],
+        "validator_type": "local_callable",
+        "validator_params": {
+          "validation_function": "validate_email_format",
+          "output_schema": null
+        },
+        "batch_size": 10
+      },
+      {
+        "name": "original_email",
+        "drop": false,
+        "allow_resize": false,
+        "column_type": "seed-dataset"
+      }
+    ],
+    "model_configs": [
+      {
+        "alias": "sonnet",
+        "model": "claude-sonnet-4-6",
+        "inference_parameters": {
+          "generation_type": "chat-completion",
+          "max_parallel_requests": 4,
+          "timeout": null,
+          "extra_body": null,
+          "temperature": 0.85,
+          "top_p": null,
+          "max_tokens": 4096
+        },
+        "provider": "claude",
+        "skip_health_check": false
+      }
+    ],
+    "tool_configs": [],
+    "seed_config": {
+      "source": {
+        "seed_type": "local",
+        "path": "enron_seed_emails.csv"
+      },
+      "sampling_strategy": "ordered",
+      "selection_strategy": null
+    },
+    "constraints": null,
+    "profilers": null,
+    "processors": null
+  },
+  "library_version": "0.0.1.dev9+8d4cd51"
+}
