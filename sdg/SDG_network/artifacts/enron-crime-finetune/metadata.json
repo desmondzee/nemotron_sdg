@@ -1,0 +1,26 @@
+{
+  "actual_num_records": 1000,
+  "buffer_size": 1000,
+  "dataset_name": "enron-crime-finetune",
+  "file_paths": {
+    "parquet-files": [
+      "parquet-files/batch_00000.parquet"
+    ]
+  },
+  "num_completed_batches": 1,
+  "schema": {
+    "crime_name": "large_string",
+    "crime_type": "large_string",
+    "format_valid": "struct<error: string, is_valid: bool>",
+    "generated_email": "large_string",
+    "is_malicious": "int64",
+    "label": "large_string",
+    "modified_email": "large_string",
+    "original_email": "large_string",
+    "reasoning": "large_string",
+    "reward_reasoning": "large_string",
+    "reward_score": "double"
+  },
+  "target_num_records": 5000,
+  "total_num_batches": 5
+}

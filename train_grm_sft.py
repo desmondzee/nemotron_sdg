@@ -25,6 +25,10 @@ Env/CLI (override via argparse):
   GRADIENT_ACCUMULATION_STEPS, NUM_EPOCHS, MERGE (merge LoRA into base after train),
   PUSH_TO_HUB (push adapter to Hugging Face), HF_TOKEN.
 
+  If Nemotron fails to load (mamba_ssm/selective_scan_cuda ABI mismatch), the script
+  automatically falls back to Qwen2.5-7B-Instruct. Or set MODEL_ID yourself, e.g.:
+  MODEL_ID=Qwen/Qwen2.5-7B-Instruct python3 train_grm_sft.py
+
 Dependencies (install before running on H200):
   pip install -U torch --index-url https://download.pytorch.org/whl/cu121
   pip install -U transformers accelerate peft trl bitsandbytes datasets
@@ -42,6 +46,9 @@ import argparse
 import os
 import re
 import sys
+
+# Fallback when Nemotron fails (mamba_ssm/selective_scan_cuda ABI mismatch)
+FALLBACK_MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
 
 
 def _parse_args() -> argparse.Namespace:
@@ -164,6 +171,7 @@ def main() -> None:
         print("Warning: flash-attn not installed. Falling back to sdpa.", flush=True)
         attn_impl = "sdpa"
 
+    use_fallback_model = False
     try:
         model = AutoModelForCausalLM.from_pretrained(
             args.model_id,
@@ -176,27 +184,45 @@ def main() -> None:
         err_msg = str(e)
         if "selective_scan_cuda" in err_msg or "mamba_ssm" in err_msg or "undefined symbol" in err_msg:
             print(
-                "Nemotron needs mamba_ssm; selective_scan_cuda was built for a different PyTorch/CUDA.\n"
-                "Reinstall mamba_ssm so it compiles against your current PyTorch (must run after torch):\n"
-                "  pip uninstall mamba-ssm -y\n"
-                "  pip install mamba-ssm --no-cache-dir\n"
-                "If that still fails, force a source build:\n"
-                "  pip install mamba-ssm --no-cache-dir --no-binary mamba-ssm\n"
-                "Install causal-conv1d first if mamba_ssm needs it:\n"
-                "  pip install causal-conv1d --no-cache-dir",
-                file=sys.stderr,
+                "Nemotron failed (mamba_ssm/selective_scan_cuda ABI mismatch).",
+                "Falling back to",
+                FALLBACK_MODEL_ID,
+                flush=True,
             )
-        raise
-    print(f"Model loaded with attn_implementation={attn_impl}", flush=True)
+            print(
+                "To fix Nemotron later: pip uninstall mamba-ssm -y; "
+                "git clone https://github.com/state-spaces/mamba.git && cd mamba && pip install .",
+                flush=True,
+            )
+            args.model_id = FALLBACK_MODEL_ID
+            use_fallback_model = True
+            tokenizer = AutoTokenizer.from_pretrained(args.model_id, trust_remote_code=True)
+            if tokenizer.pad_token is None:
+                tokenizer.pad_token = tokenizer.eos_token
+            model = AutoModelForCausalLM.from_pretrained(
+                args.model_id,
+                quantization_config=bnb_config,
+                device_map="auto",
+                attn_implementation=attn_impl,
+                trust_remote_code=True,
+            )
+        else:
+            raise
+    print(f"Model loaded: {args.model_id} (attn_implementation={attn_impl})", flush=True)
 
     # -------------------------------------------------------------------------
-    # PEFT: LoRA on attention + MLP/MoE experts (no gate_proj in Nemotron-H)
+    # PEFT: LoRA (Nemotron-H has no gate_proj; Llama/Qwen do)
     # -------------------------------------------------------------------------
     model = prepare_model_for_kbit_training(model)
+    lora_target_modules = (
+        ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+        if use_fallback_model
+        else ["q_proj", "k_proj", "v_proj", "o_proj", "up_proj", "down_proj"]
+    )
     lora_config = LoraConfig(
         r=16,
         lora_alpha=32,
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "up_proj", "down_proj"],
+        target_modules=lora_target_modules,
         lora_dropout=0.05,
         bias="none",
         task_type="CAUSAL_LM",
@@ -249,7 +275,6 @@ def main() -> None:
         max_grad_norm=0.3,
         logging_steps=10,
         save_strategy="epoch",
-        group_by_length=True,
         assistant_only_loss=True,
     )
 
